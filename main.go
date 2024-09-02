@@ -35,19 +35,13 @@ func run() error {
 		result = schemaFor(val)
 	}
 
-	fmt.Println(rendered(result))
+	fmt.Printf("var data %s\n", rendered(result))
 
-	structsByName := make(map[string]reflect.Type)
+	for i := 1; i <= len(structNames); i++ {
+		fmt.Println()
 
-	for typ, name := range structNames {
-		structsByName[name] = typ
-	}
-
-	for i := 1; i <= len(structsByName); i++ {
-		var (
-			name = fmt.Sprintf("S%d", i)
-			typ  = structsByName[name]
-		)
+		name := fmt.Sprintf("S%03d", i)
+		typ := structsByName[name]
 
 		fmt.Printf("type %s struct {\n", name)
 
@@ -119,7 +113,7 @@ func schemaFor(inp any) reflect.Type {
 			fields[fieldName] = reflect.StructField{
 				Name: fieldName,
 				Type: schemaFor(elem.Interface()),
-				Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s,omitEmpty"`, origFieldName)),
+				Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s,omitempty"`, origFieldName)),
 			}
 		}
 
@@ -234,26 +228,27 @@ func unifyTypes(orig, other reflect.Type) reflect.Type {
 	return structOf(fields)
 }
 
-var structNames = make(map[reflect.Type]string)
-
 func structOf(fields map[string]reflect.StructField) reflect.Type {
 	fieldSlice := slices.Collect(maps.Values(fields))
 	sort.Slice(fieldSlice, func(i, j int) bool { return fieldSlice[i].Name < fieldSlice[j].Name })
-
-	typ := reflect.StructOf(fieldSlice)
-	if _, ok := structNames[typ]; !ok {
-		structNames[typ] = fmt.Sprintf("S%d", len(structNames)+1)
-	}
-
-	return typ
+	return reflect.StructOf(fieldSlice)
 }
+
+var (
+	structNames   = make(map[reflect.Type]string)
+	structsByName = make(map[string]reflect.Type)
+)
 
 func rendered(typ reflect.Type) string {
 	switch typ.Kind() {
 	case reflect.Struct:
-		if name, ok := structNames[typ]; ok {
-			return "*" + name
+		name, ok := structNames[typ]
+		if !ok {
+			name = fmt.Sprintf("S%03d", len(structNames)+1)
+			structNames[typ] = name
+			structsByName[name] = typ
 		}
+		return "*" + name
 
 	case reflect.Slice:
 		return "[]" + rendered(typ.Elem())
