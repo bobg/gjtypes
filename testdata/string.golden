@@ -1,0 +1,4 @@
+var data string // Unmarshal into this type.
+
+type S001 struct {
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/format"
+	"io"
 	"maps"
 	"os"
 	"reflect"
@@ -18,19 +19,38 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(os.Stdout, os.Stdin); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	var val any
-	dec := json.NewDecoder(os.Stdin)
+func run(w io.Writer, r io.Reader) error {
+	var (
+		val  any
+		vals []any
+	)
+
+	dec := json.NewDecoder(r)
 	dec.UseNumber()
-	if err := dec.Decode(&val); err != nil {
-		return errors.Wrap(err, "decoding JSON")
+
+	for dec.More() {
+		if err := dec.Decode(&val); err != nil {
+			return errors.Wrap(err, "decoding JSON")
+		}
+		vals = append(vals, val)
 	}
+
+	switch len(vals) {
+	case 0:
+		return fmt.Errorf("no JSON data")
+	case 1:
+		val = vals[0]
+	default:
+		val = vals
+	}
+
+	fmt.Printf("xxx val is %v\n", val)
 
 	result := anyType
 	if val != nil {
@@ -64,7 +84,7 @@ func run() error {
 		return errors.Wrap(err, "formatting Go source")
 	}
 
-	_, err = os.Stdout.Write(formatted)
+	_, err = w.Write(formatted)
 	return errors.Wrap(err, "writing to stdout")
 }
 
@@ -188,20 +208,26 @@ func unifyTypes(orig, other reflect.Type) reflect.Type {
 		return orig
 	}
 
-	switch orig {
-	case float64Type:
+	if orig == float64Type {
 		if other == int64Type {
 			return float64Type
 		}
-		fallthrough
-
-	case int64Type:
 		if other == stringType {
 			return stringType
 		}
 		return anyType
+	}
+	if other == float64Type {
+		if orig == int64Type {
+			return float64Type
+		}
+		if orig == stringType {
+			return stringType
+		}
+		return anyType
+	}
 
-	case stringType:
+	if orig == stringType || other == stringType {
 		return anyType
 	}
 

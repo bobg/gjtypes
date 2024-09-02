@@ -1,0 +1,4 @@
+var data []int64 // Unmarshal into this type.
+
+type S001 struct {
+}
