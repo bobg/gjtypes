@@ -2,8 +2,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"maps"
 	"os"
 	"reflect"
@@ -35,25 +37,35 @@ func run() error {
 		result = schemaFor(val)
 	}
 
-	fmt.Printf("var data %s\n", rendered(result))
+	buf := new(bytes.Buffer)
+
+	fmt.Fprintf(buf, "var data %s // Unmarshal into this type.\n", rendered(result))
 
 	for i := 1; i <= len(structNames); i++ {
-		fmt.Println()
+		fmt.Fprintln(buf)
 
-		name := fmt.Sprintf("S%03d", i)
-		typ := structsByName[name]
+		var (
+			name = fmt.Sprintf("S%03d", i)
+			typ  = structsByName[name]
+		)
 
-		fmt.Printf("type %s struct {\n", name)
+		fmt.Fprintf(buf, "type %s struct {\n", name)
 
 		for fieldNum := range typ.NumField() {
 			field := typ.Field(fieldNum)
-			fmt.Printf("  %s %s `%s`\n", field.Name, rendered(field.Type), field.Tag)
+			fmt.Fprintf(buf, "  %s %s `%s`\n", field.Name, rendered(field.Type), field.Tag)
 		}
 
-		fmt.Println("}")
+		fmt.Fprintln(buf, "}")
 	}
 
-	return nil
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "formatting Go source")
+	}
+
+	_, err = os.Stdout.Write(formatted)
+	return errors.Wrap(err, "writing to stdout")
 }
 
 var (
