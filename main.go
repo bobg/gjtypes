@@ -119,7 +119,7 @@ func schemaFor(inp any) reflect.Type {
 			fields[fieldName] = reflect.StructField{
 				Name: fieldName,
 				Type: schemaFor(elem.Interface()),
-				Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s"`, origFieldName)),
+				Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s,omitEmpty"`, origFieldName)),
 			}
 		}
 
