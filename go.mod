@@ -1,4 +1,4 @@
-module github.com/bobg/gjschema
+module github.com/bobg/gjtypes
 
 go 1.23.0
 

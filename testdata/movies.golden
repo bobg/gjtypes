@@ -1,0 +1,14 @@
+var data []*S001 // Unmarshal into this type.
+
+type S001 struct {
+	Director string   `json:"director,omitempty"`
+	Songs    []*S002  `json:"songs,omitempty"`
+	Stars    []string `json:"stars,omitempty"`
+	Title    string   `json:"title,omitempty"`
+	Year     int64    `json:"year,omitempty"`
+}
+
+type S002 struct {
+	Artist string `json:"artist,omitempty"`
+	Title  string `json:"title,omitempty"`
+}

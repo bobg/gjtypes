@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -29,6 +30,11 @@ func TestRun(t *testing.T) {
 			continue
 		}
 		t.Run(entry.Name(), func(t *testing.T) {
+			c := controller{
+				structNames:   make(map[reflect.Type]string),
+				structsByName: make(map[string]reflect.Type),
+			}
+
 			f, err := os.Open(filepath.Join("testdata", entry.Name()))
 			if err != nil {
 				t.Fatal(err)
@@ -36,8 +42,7 @@ func TestRun(t *testing.T) {
 			defer f.Close()
 
 			got := new(bytes.Buffer)
-
-			if err := run(got, f); err != nil {
+			if err := c.run(got, f); err != nil {
 				t.Fatal(err)
 			}
 

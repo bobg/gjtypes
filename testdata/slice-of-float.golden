@@ -1,4 +1,1 @@
 var data []float64 // Unmarshal into this type.
-
-type S001 struct {
-}

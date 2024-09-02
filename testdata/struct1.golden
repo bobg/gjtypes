@@ -1,0 +1,5 @@
+var data *S001 // Unmarshal into this type.
+
+type S001 struct {
+	Foo string `json:"foo,omitempty"`
+}

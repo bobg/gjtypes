@@ -1,4 +1,4 @@
-// Command gjschema reads JSON data from stdin and writes Go types for parsing that data to stdout.
+// Command gjtypes reads JSON data from stdin and writes Go types for parsing that data to stdout.
 package main
 
 import (
@@ -19,13 +19,26 @@ import (
 )
 
 func main() {
-	if err := run(os.Stdout, os.Stdin); err != nil {
+	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(w io.Writer, r io.Reader) error {
+type controller struct {
+	structNames   map[reflect.Type]string
+	structsByName map[string]reflect.Type
+}
+
+func run() error {
+	c := controller{
+		structNames:   make(map[reflect.Type]string),
+		structsByName: make(map[string]reflect.Type),
+	}
+	return c.run(os.Stdout, os.Stdin)
+}
+
+func (c *controller) run(w io.Writer, r io.Reader) error {
 	var (
 		val  any
 		vals []any
@@ -50,30 +63,28 @@ func run(w io.Writer, r io.Reader) error {
 		val = vals
 	}
 
-	fmt.Printf("xxx val is %v\n", val)
-
 	result := anyType
 	if val != nil {
-		result = schemaFor(val)
+		result = typeFor(val)
 	}
 
 	buf := new(bytes.Buffer)
 
-	fmt.Fprintf(buf, "var data %s // Unmarshal into this type.\n", rendered(result))
+	fmt.Fprintf(buf, "var data %s // Unmarshal into this type.\n", c.rendered(result))
 
-	for i := 1; i <= len(structNames); i++ {
+	for i := 1; i <= len(c.structNames); i++ {
 		fmt.Fprintln(buf)
 
 		var (
 			name = fmt.Sprintf("S%03d", i)
-			typ  = structsByName[name]
+			typ  = c.structsByName[name]
 		)
 
 		fmt.Fprintf(buf, "type %s struct {\n", name)
 
 		for fieldNum := range typ.NumField() {
 			field := typ.Field(fieldNum)
-			fmt.Fprintf(buf, "  %s %s `%s`\n", field.Name, rendered(field.Type), field.Tag)
+			fmt.Fprintf(buf, "  %s %s `%s`\n", field.Name, c.rendered(field.Type), field.Tag)
 		}
 
 		fmt.Fprintln(buf, "}")
@@ -99,7 +110,7 @@ var (
 
 type undefined struct{}
 
-func schemaFor(inp any) reflect.Type {
+func typeFor(inp any) reflect.Type {
 	val := reflect.ValueOf(inp)
 
 	switch val.Kind() {
@@ -137,6 +148,9 @@ func schemaFor(inp any) reflect.Type {
 			}
 			origFieldName := key.String()
 			fieldName := strcase.ToCamel(origFieldName)
+
+			// xxx check fieldName is a legal Go identifier.
+
 			if _, ok := fields[fieldName]; ok {
 				// Field name collision.
 				return anyType
@@ -144,7 +158,7 @@ func schemaFor(inp any) reflect.Type {
 
 			fields[fieldName] = reflect.StructField{
 				Name: fieldName,
-				Type: schemaFor(elem.Interface()),
+				Type: typeFor(elem.Interface()),
 				Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s,omitempty"`, origFieldName)),
 			}
 		}
@@ -156,14 +170,14 @@ func schemaFor(inp any) reflect.Type {
 			return reflect.SliceOf(undefinedType)
 		}
 
-		result := schemaFor(val.Index(0).Interface())
+		result := typeFor(val.Index(0).Interface())
 		if result == anyType {
 			return reflect.SliceOf(result)
 		}
 
 		for i := 1; i < val.Len(); i++ {
 			elem := val.Index(i)
-			result = updateSchemaFor(result, elem.Interface())
+			result = unifyTypes(result, typeFor(elem.Interface()))
 			if result == anyType {
 				return reflect.SliceOf(result)
 			}
@@ -186,10 +200,6 @@ func schemaFor(inp any) reflect.Type {
 	default:
 		return anyType
 	}
-}
-
-func updateSchemaFor(typ reflect.Type, val any) reflect.Type {
-	return unifyTypes(typ, schemaFor(val))
 }
 
 func unifyTypes(orig, other reflect.Type) reflect.Type {
@@ -272,24 +282,19 @@ func structOf(fields map[string]reflect.StructField) reflect.Type {
 	return reflect.StructOf(fieldSlice)
 }
 
-var (
-	structNames   = make(map[reflect.Type]string)
-	structsByName = make(map[string]reflect.Type)
-)
-
-func rendered(typ reflect.Type) string {
+func (c *controller) rendered(typ reflect.Type) string {
 	switch typ.Kind() {
 	case reflect.Struct:
-		name, ok := structNames[typ]
+		name, ok := c.structNames[typ]
 		if !ok {
-			name = fmt.Sprintf("S%03d", len(structNames)+1)
-			structNames[typ] = name
-			structsByName[name] = typ
+			name = fmt.Sprintf("S%03d", len(c.structNames)+1)
+			c.structNames[typ] = name
+			c.structsByName[name] = typ
 		}
 		return "*" + name
 
 	case reflect.Slice:
-		return "[]" + rendered(typ.Elem())
+		return "[]" + c.rendered(typ.Elem())
 	}
 
 	return typ.String()
