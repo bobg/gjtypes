@@ -1,5 +1,9 @@
 # Gjtypes - Convert JSON data into the Go types needed to parse it
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/bobg/gjtypes)](https://goreportcard.com/report/github.com/bobg/gjtypes)
+[![Tests](https://github.com/bobg/gjtypes/actions/workflows/go.yml/badge.svg)](https://github.com/bobg/gjtypes/actions/workflows/go.yml)
+[![Coverage Status](https://coveralls.io/repos/github/bobg/gjtypes/badge.svg?branch=main)](https://coveralls.io/github/bobg/gjtypes?branch=main)
+
 This is gjtypes,
 a command that parses JSON data on standard input
 and produces the Go types needed to parse that data
